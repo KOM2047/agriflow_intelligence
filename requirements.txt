@@ -1,6 +1,8 @@
 pandas
+numpy
 psycopg2-binary
 sqlalchemy
 faker
-apache-airflow
 requests
+python-dotenv
+apache-airflow-providers-postgres
