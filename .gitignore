@@ -1,0 +1,15 @@
+# Sensitive Credentials
+.env
+config/connections.json
+
+# Heavy Data Files
+data/raw/*
+data/staging/*
+data/archive/*
+logs/*
+
+# Python Cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+venv/
