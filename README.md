@@ -4,6 +4,12 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
 ![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-2.7.1-017CEE)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED)
+# 🌾 AgriFlow Intelligence: Automated ETL Pipeline
+
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
+![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-2.7.1-017CEE)
+![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED)
 ![Pandas](https://img.shields.io/badge/Pandas-Data_Manipulation-150458)
 
 ---
@@ -34,6 +40,10 @@ The pipeline follows a robust **ETL architecture** orchestrated via **Apache Air
 4. **Orchestration (Airflow)**  
    - Automates the workflow as a **daily scheduled DAG**.  
 
+### System Diagram
+Below is the architecture diagram (Mermaid). On GitHub the diagram will render automatically. If your viewer doesn't support Mermaid, consider generating the SVG in `docs/`.
+
+```mermaid
 graph TD
     %% Define Styles
     classDef storage fill:#f9f,stroke:#333,stroke-width:2px;
@@ -69,7 +79,7 @@ graph TD
 
     %% Data Warehouse
     subgraph Warehouse [Data Warehouse (Docker Container)]
-        PostgresDW[((PostgreSQL <br/> agriflow_dw)) <br/> Star Schema Mapping]:::storage
+        PostgresDW(((PostgreSQL <br/> agriflow_dw)) <br/> Star Schema Mapping):::storage
         pgAdmin[pgAdmin4 <br/> UI Interface]:::compute
     end
 
@@ -95,6 +105,7 @@ graph TD
     ETLScript -->|Load (Idempotent)| PostgresDW
     
     pgAdmin -.->|Manages/Queries| PostgresDW
+```
 
 ---
 
@@ -192,4 +203,3 @@ Fork the repo, create a feature branch, and submit a PR.
 ## License
 
 This project is licensed under the MIT License.
-```
