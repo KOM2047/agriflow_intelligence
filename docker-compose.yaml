@@ -1,6 +1,28 @@
+x-airflow-common:
+  &airflow-common
+  image: apache/airflow:2.7.1
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    # FIXED: Changed from CORE to DATABASE to remove the deprecation warning
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: FB0o_zt4e3ZkkFSIV59l6eI6M0_YtEK3b07y2W-7u58=
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__ADMIN_USER: admin
+    AIRFLOW__ADMIN_PASSWORD: admin
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./scripts:/opt/airflow/scripts
+    - ./data:/opt/airflow/data
+    - ./requirements.txt:/opt/airflow/requirements.txt
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
-  # 1. The Database Engine
-  postgres:
+  # 1. The Warehouse (Your Business Data)
+  agriflow_db:
     image: postgres:15
     container_name: agriflow_db
     environment:
@@ -13,9 +35,50 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - agriflow_net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "admin"]
+      interval: 10s
+      retries: 5
 
-  # 2. The Interface (pgAdmin) - Optional if you have it installed locally, 
-  # but good to have in the container for consistency.
+  # 2. The Airflow Database (Metadata)
+  postgres:
+    image: postgres:13
+    container_name: airflow_meta_db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    networks:
+      - agriflow_net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  # 3. Airflow Webserver ( The UI )
+  airflow-webserver:
+    <<: *airflow-common
+    # FIXED: The webserver will now also ensure the DB is initialized before booting
+    command: bash -c "pip install -r requirements.txt && airflow db init && airflow webserver"
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - agriflow_net
+
+  # 4. Airflow Scheduler ( The Heartbeat )
+  airflow-scheduler:
+    <<: *airflow-common
+    # FIXED: Added a slight sleep delay so it doesn't collide with the webserver's init
+    command: bash -c "pip install -r requirements.txt && sleep 10 && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true && airflow scheduler"
+    networks:
+      - agriflow_net
+
+  # 5. pgAdmin (Interface)
   pgadmin:
     image: dpage/pgadmin4
     container_name: agriflow_pgadmin
@@ -24,8 +87,6 @@ services:
       PGADMIN_DEFAULT_PASSWORD: password123
     ports:
       - "8080:80"
-    depends_on:
-      - postgres
     networks:
       - agriflow_net
 

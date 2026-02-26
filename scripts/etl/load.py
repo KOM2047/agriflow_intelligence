@@ -7,7 +7,7 @@ import os
 # ---------------------------------------------------------
 # Connection String: postgresql://user:password@host:port/database
 # Note: When running locally, host is 'localhost'. Inside Docker, it's 'agriflow_db'.
-DB_URI = "postgresql://admin:password123@127.0.0.1:5435/agriflow_dw"
+DB_URI = "postgresql://admin:password123@agriflow_db:5432/agriflow_dw"
 engine = create_engine(DB_URI)
 
 # ---------------------------------------------------------
@@ -77,7 +77,7 @@ def load_to_postgres(df):
         output_df.rename(columns={'qty_harvested_kg': 'quantity_harvested_kg'}, inplace=True)
 
         # ---------------------------------------------------------
-        # E. Idempotency (THE FIX IS HERE)
+        # E. Idempotency
         # ---------------------------------------------------------
         # Convert NumPy array to a standard Python List first using .tolist()
         date_list = output_df['date_id'].unique().tolist()
@@ -92,9 +92,9 @@ def load_to_postgres(df):
             
             delete_query = f"DELETE FROM fact_harvest_yield WHERE date_id IN {date_tuple_str}"
             
-            with engine.connect() as conn:
+            # Using engine.begin() automatically commits when successful
+            with engine.begin() as conn:
                 conn.execute(text(delete_query))
-                conn.commit()
                 print(f"   [Load] Cleared existing data for dates: {date_tuple_str}")
 
         # F. Final Insert
@@ -134,9 +134,7 @@ if __name__ == "__main__":
             # NOTE: We need to make sure dim_date has the date key first.
             # Quick hack for the test block:
             date_key = int(clean_data['date'].iloc[0].replace('-', ''))
-            with engine.connect() as conn:
-                 # Ensure date exists to prevent FK error
+            with engine.begin() as conn:
                 conn.execute(text(f"INSERT INTO dim_date (date_id, full_date) VALUES ({date_key}, '{clean_data['date'].iloc[0]}') ON CONFLICT DO NOTHING"))
-                conn.commit()
 
             load_to_postgres(clean_data)
