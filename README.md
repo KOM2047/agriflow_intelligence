@@ -36,61 +36,66 @@ The pipeline follows a robust **ETL architecture** orchestrated via **Apache Air
 
 ### System Diagram
 graph TD
-    %% Styles
+    %% Define Styles
     classDef storage fill:#f9f,stroke:#333,stroke-width:2px;
     classDef compute fill:#bbf,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5;
     classDef orchestrator fill:#ff9,stroke:#333,stroke-width:2px;
     classDef external fill:#ddd,stroke:#333,stroke-width:1px;
 
-    %% Title
-    %% Data Pipeline Architecture
-
     %% Orchestration Layer
-    subgraph Orchestration [Orchestration Layer (Docker)]
-        Airflow((Apache Airflow\nScheduler & Webserver)):::orchestrator
-        MetaDB[(Airflow Metadata\nPostgres DB))]:::storage
+    subgraph Orchestration [Orchestration Layer (Docker Container)]
+        Airflow((Apache Airflow <br/> Scheduler & Webserver)):::orchestrator
+        MetaDB[(Airflow Metadata <br/> Postgres DB)]:::storage
         Airflow -.->|Tracks State| MetaDB
     end
 
-    %% Sources
-    subgraph Sources [Source Layer]
-        FarmLogs[/Farm Management\nSystem/]:::external
-        MarketAPI[/Market Price\nAPI Feed/]:::external
+    %% Source Systems (Simulated)
+    subgraph Sources [Source Layer (Logical)]
+        FarmLogs[Internal Farm <br/> Management System]:::external
+        MarketAPI[External Market <br/> Price API Feed]:::external
     end
 
-    %% Data Lake
-    subgraph DataLake [Data Lake / Landing Zone]
-        RawZone[data/raw\nLanding Area]:::storage
-        StagingZone[data/staging\nValidated Area]:::storage
+    %% Data Lake / File Storage (Mounted Volumes)
+    subgraph DataLake [Data Lake / Landing Zone (Local Volumes)]
+        RawZone[data/raw <br/> Landing Area]:::storage
+        StagingZone[data/staging <br/> Validated Area]:::storage
     end
 
-    %% Compute Layer
-    subgraph Compute [ETL & Transformation (Docker)]
-        GenScripts(Python Generators\ngenerate_harvests.py\nmock_market_api.py):::compute
-        IngestScript(Bash ingest.sh\n+ sed):::compute
-        ETLScript(Python/Pandas\nextract.py\ntransform.py):::compute
+    %% Compute / ETL Layer
+    subgraph Compute [ETL & Transformation Layer (Docker Container)]
+        GenScripts(Python Generators <br/> generate_harvests.py <br/> mock_market_api.py):::compute
+        IngestScript(Bash Script <br/> ingest.sh + sed):::compute
+        ETLScript(Python/Pandas <br/> extract.py <br/> transform.py):::compute
     end
 
-    %% Warehouse
-    subgraph Warehouse [Data Warehouse (Docker)]
-        PostgresDW(((PostgreSQL\nagriflow_dw))):::storage
-        pgAdmin[pgAdmin4\nUI Interface]:::compute
-        pgAdmin -.->|Manages/Queries| PostgresDW
+    %% Data Warehouse
+    subgraph Warehouse [Data Warehouse (Docker Container)]
+        PostgresDW[((PostgreSQL <br/> agriflow_dw)) <br/> Star Schema Mapping]:::storage
+        pgAdmin[pgAdmin4 <br/> UI Interface]:::compute
     end
 
-    %% Flows
-    Airflow ==>|Triggers| GenScripts
-    Airflow ==>|Triggers| IngestScript
-    Airflow ==>|Executes| ETLScript
+    %% ---------------------------------------------------------
+    %% Define Flows
+    %% ---------------------------------------------------------
+    
+    %% 1. Airflow Control Flow (Dashed Lines)
+    Airflow ==>|1. Triggers| GenScripts
+    Airflow ==>|2. Triggers| IngestScript
+    Airflow ==>|3. Executes| ETLScript
 
-    FarmLogs -->|CSV| GenScripts
-    MarketAPI -->|JSON| GenScripts
-
-    GenScripts -->|Raw Files| RawZone
+    %% 2. Data Flow (Solid Lines)
+    FarmLogs -->|Simulated CSV| GenScripts
+    MarketAPI -->|Simulated JSON| GenScripts
+    
+    GenScripts -->|Writes Raw Files| RawZone
     RawZone -->|Reads Raw| IngestScript
-    IngestScript -->|Moves & Cleans| StagingZone
+    
+    IngestScript -->|Moves & Cleans (LF)| StagingZone
     StagingZone -->|Reads Staging| ETLScript
-    ETLScript -->|Load| PostgresDW
+    
+    ETLScript -->|Load (Idempotent)| PostgresDW
+    
+    pgAdmin -.->|Manages/Queries| PostgresDW
 ---
 
 ## Data Modeling (Star Schema)
