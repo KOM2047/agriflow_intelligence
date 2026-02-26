@@ -32,7 +32,9 @@ The pipeline follows a robust **ETL architecture** orchestrated via **Apache Air
    - Enforces **idempotency** (`DELETE-before-INSERT`) to prevent duplicate records on re-runs.  
 
 4. **Orchestration (Airflow)**  
-   - Automates the workflow as a **daily scheduled DAG**.  
+   - Automates the workflow as a **daily scheduled DAG**.
+   
+   docs/system-architecture diagram.png
 ---
 
 ## Data Modeling (Star Schema)
