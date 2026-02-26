@@ -1,0 +1,56 @@
+graph TD
+    %% Define Styles
+    classDef storage fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef compute fill:#bbf,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5;
+    classDef orchestrator fill:#ff9,stroke:#333,stroke-width:2px;
+    classDef external fill:#ddd,stroke:#333,stroke-width:1px;
+
+    %% Orchestration Layer
+    subgraph Orchestration [Orchestration Layer (Docker Container)]
+        Airflow((Apache Airflow - Scheduler & Webserver)):::orchestrator
+        MetaDB[(Airflow Metadata - Postgres DB)]:::storage
+        Airflow -.->|Tracks State| MetaDB
+    end
+
+    %% Source Systems (Simulated)
+    subgraph Sources [Source Layer (Logical)]
+        FarmLogs[Internal Farm Management System]:::external
+        MarketAPI[External Market Price API Feed]:::external
+    end
+
+    %% Data Lake / File Storage (Mounted Volumes)
+    subgraph DataLake [Data Lake / Landing Zone (Local Volumes)]
+        RawZone[data/raw Landing Area]:::storage
+        StagingZone[data/staging Validated Area]:::storage
+    end
+
+    %% Compute / ETL Layer
+    subgraph Compute [ETL & Transformation Layer (Docker Container)]
+        GenScripts[Python Generators: generate_harvests.py, mock_market_api.py]:::compute
+        IngestScript[Bash Ingest Script: ingest.sh + sed]:::compute
+        ETLScript[Python/Pandas: extract.py, transform.py]:::compute
+    end
+
+    %% Data Warehouse
+    subgraph Warehouse [Data Warehouse (Docker Container)]
+        PostgresDW[(PostgreSQL agriflow_dw - Star Schema Mapping)]:::storage
+        pgAdmin[pgAdmin4 - UI Interface]:::compute
+    end
+
+    %% Define Flows
+    Airflow ==>|1. Triggers| GenScripts
+    Airflow ==>|2. Triggers| IngestScript
+    Airflow ==>|3. Executes| ETLScript
+
+    FarmLogs -->|Simulated CSV| GenScripts
+    MarketAPI -->|Simulated JSON| GenScripts
+
+    GenScripts -->|Writes Raw Files| RawZone
+    RawZone -->|Reads Raw| IngestScript
+
+    IngestScript -->|Moves & Cleans (LF)| StagingZone
+    StagingZone -->|Reads Staging| ETLScript
+
+    ETLScript -->|Load (Idempotent)| PostgresDW
+
+    pgAdmin -.->|Manages/Queries| PostgresDW

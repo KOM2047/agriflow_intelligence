@@ -127,67 +127,60 @@ The Data Warehouse is designed using **dimensional modeling** in PostgreSQL, opt
 
 This project is **100% containerized**. You only need Docker installed to run the environment.
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/KOM2047/agriflow_intelligence.git
-cd agriflow_intelligence
+### System Diagram
+Below is the architecture diagram (Mermaid). GitHub will render this block automatically.
+
+```mermaid
+graph TD
+    classDef storage fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef compute fill:#bbf,stroke:#333,stroke-width:1px,stroke-dasharray:5 5;
+    classDef orchestrator fill:#ff9,stroke:#333,stroke-width:2px;
+    classDef external fill:#ddd,stroke:#333,stroke-width:1px;
+
+    subgraph Orchestration [Orchestration Layer (Docker Container)]
+        Airflow[Apache Airflow - Scheduler & Webserver]:::orchestrator
+        MetaDB[Airflow Metadata (Postgres DB)]:::storage
+        Airflow -.->|Tracks state| MetaDB
+    end
+
+    subgraph Sources [Source Layer (Logical)]
+        FarmLogs[Internal Farm Management System]:::external
+        MarketAPI[External Market Price API Feed]:::external
+    end
+
+    subgraph DataLake [Data Lake / Landing Zone (Local Volumes)]
+        RawZone[data/raw - Landing Area]:::storage
+        StagingZone[data/staging - Validated Area]:::storage
+    end
+
+    subgraph Compute [ETL & Transformation Layer (Docker Container)]
+        GenScripts[Python generators: generate_harvests.py, mock_market_api.py]:::compute
+        IngestScript[Bash ingest: ingest.sh (uses sed)]:::compute
+        ETLScript[Python/Pandas: extract.py, transform.py]:::compute
+    end
+
+    subgraph Warehouse [Data Warehouse (Docker Container)]
+        PostgresDW[PostgreSQL (agriflow_dw) - Star Schema mapping]:::storage
+        pgAdmin[pgAdmin4 UI]:::compute
+    end
+
+    Airflow ==>|1. Triggers| GenScripts
+    Airflow ==>|2. Triggers| IngestScript
+    Airflow ==>|3. Executes| ETLScript
+
+    FarmLogs -->|Simulated CSV| GenScripts
+    MarketAPI -->|Simulated JSON| GenScripts
+
+    GenScripts -->|Writes raw files| RawZone
+    RawZone -->|Reads raw| IngestScript
+
+    IngestScript -->|Moves & cleans (LF)| StagingZone
+    StagingZone -->|Reads staging| ETLScript
+
+    ETLScript -->|Load (idempotent)| PostgresDW
+
+    pgAdmin -.->|Manages/Queries| PostgresDW
 ```
-
-### 2. Build and start containers
-```bash
-docker-compose up --build
-```
-
-### 3. Access Airflow UI
-- Navigate to: `http://localhost:8080`  
-- Default credentials: `airflow / airflow`
-
-### 4. Run the pipeline
-- Trigger the DAG: `agriflow_etl_pipeline`  
-- Monitor execution via Airflow UI  
-
----
-
-## Example Output
-
-Once executed, the pipeline produces analytical tables in PostgreSQL. Example query:
-
-```sql
-SELECT 
-    f.crop_id, 
-    f.farm_id, 
-    d.date, 
-    SUM(f.quantity_harvested_kg) AS total_yield, 
-    SUM(f.profit_zar) AS total_profit
-FROM fact_harvest_yield f
-JOIN dim_date d ON f.date_id = d.date_id
-GROUP BY f.crop_id, f.farm_id, d.date;
-```
-
----
-
-## Tech Stack
-
-- **Languages:** Python (3.12), Bash  
-- **Libraries:** Pandas  
-- **Database:** PostgreSQL (15)  
-- **Orchestration:** Apache Airflow (2.7.1)  
-- **Containerization:** Docker  
-
----
-
-## Future Enhancements
-
-- Integration with **real-time IoT farm sensors**  
-- **Data quality monitoring** with Great Expectations  
-- **BI dashboards** via Power BI / Metabase  
-- **Cloud deployment** (AWS / Azure)  
-
----
-
-## Author
-
-**Kabelo Modimoeng**  
 Emerging Cloud & AI Engineer | Data Engineering & Workflow Automation  
 Sandton Tech Market | LinkedIn [(linkedin.com in Bing)](https://www.bing.com/search?q="https%3A%2F%2Fwww.linkedin.com%2Fin%2Fkabelo-modimoeng")  
 
